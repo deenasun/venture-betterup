@@ -1,9 +1,63 @@
+'use client'
+
 import Image from "next/image";
+import { useCallback, useState } from "react";
 
 export default function Home() {
+  const [file, setFile] = useState(null)
+  const checkExtension = useCallback(
+    (file) => {
+      const extension = file.name.split('.').pop();
+      return extension;
+  }, [])
+
+  function handleFileSelect(target) {
+
+    if (!target?.files?.length || target?.files?.length == 0) {
+      return
+    }
+    const file = target.files[0];
+    const extension = checkExtension(file)
+
+    if (extension == 'csv') {
+      loadCSVFile(file)
+    }
+    else if (extension == 'xlsx') {
+      loadXLSXFIle(file)
+    }
+    else {
+      console.log('File type not supported! File must be of type .csv or .xlsx')
+    }
+  }
+
+  const loadCSVFile = useCallback((file) => {
+    const reader = new FileReader();
+    reader.readAsText(file)
+    reader.onload = (event) => {
+      const fileContent = reader.result;
+      console.log('CSV FILE CONTENT:', fileContent);
+    }
+  }, [])
+
+  const loadXLSXFIle = useCallback((file) => {
+    const reader = new FileReader();
+    reader.readAsArrayBuffer(file)
+    reader.onload = () => {
+      const fileContent = reader.result;
+      var workbook = XLSX.read(fileContent, {
+        type: 'binary'
+      })
+
+      console.log('WORKBOOK CONTENT:', workbook);
+    }
+  }, [])
+  
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
+        <input type='file' id='fileInput' onChange={(event) => {
+          console.log(event)
+          handleFileSelect(event.target)}}/>
         <Image
           className="dark:invert"
           src="/next.svg"
