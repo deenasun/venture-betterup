@@ -1,11 +1,14 @@
 'use client'
 
 import Image from "next/image";
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useContext } from "react";
 import { read, utils } from 'xlsx';
+import Table from '../components/Table.jsx'
+import { DashboardContext } from "@/components/DashboardContext";
 
 export default function Home() {
-  const [data, setData] = useState(null)
+  const {courses, setCourses, getCourseByCourseID} = useContext(DashboardContext)
+
   const checkExtension = useCallback(
     (file) => {
       const extension = file.name.split('.').pop();
@@ -13,8 +16,8 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    console.log('DATA:', data)
-  }, [data])
+    console.log('WOOHOO:', courses)
+  }, [courses])
 
   function handleFileSelect(target) {
 
@@ -43,7 +46,7 @@ export default function Home() {
       const fileContent = reader.result;
       const wb = read(fileContent, {type: "string"});
       const entries = utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-      setData(entries)
+      setCourses(entries)
     }
   }, [])
 
@@ -57,7 +60,7 @@ export default function Home() {
       })
 
       const entries = utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-      setData(entries)
+      setCourses(entries)
     }
   }, [])
   
@@ -65,8 +68,8 @@ export default function Home() {
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
         <input type='file' id='fileInput' onChange={(event) => {
-          console.log(event)
           handleFileSelect(event.target)}}/>
+          {courses && <Table />}
         <Image
           className="dark:invert"
           src="/next.svg"
