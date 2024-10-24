@@ -1,15 +1,20 @@
 'use client'
 
 import Image from "next/image";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
+import { read, utils } from 'xlsx';
 
 export default function Home() {
-  const [file, setFile] = useState(null)
+  const [data, setData] = useState(null)
   const checkExtension = useCallback(
     (file) => {
       const extension = file.name.split('.').pop();
       return extension;
   }, [])
+
+  useEffect(() => {
+    console.log('DATA:', data)
+  }, [data])
 
   function handleFileSelect(target) {
 
@@ -31,11 +36,14 @@ export default function Home() {
   }
 
   const loadCSVFile = useCallback((file) => {
+
     const reader = new FileReader();
     reader.readAsText(file)
     reader.onload = (event) => {
       const fileContent = reader.result;
-      console.log('CSV FILE CONTENT:', fileContent);
+      const wb = read(fileContent, {type: "string"});
+      const entries = utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+      setData(entries)
     }
   }, [])
 
@@ -44,11 +52,12 @@ export default function Home() {
     reader.readAsArrayBuffer(file)
     reader.onload = () => {
       const fileContent = reader.result;
-      var workbook = XLSX.read(fileContent, {
+      const workbook = read(fileContent, {
         type: 'binary'
       })
 
-      console.log('WORKBOOK CONTENT:', workbook);
+      const entries = utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+      setData(entries)
     }
   }, [])
   
