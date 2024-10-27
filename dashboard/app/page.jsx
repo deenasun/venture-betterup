@@ -1,167 +1,167 @@
-'use client'
+"use client";
 
 import Image from "next/image";
 import { useCallback, useState, useEffect, useContext } from "react";
-import { read, utils } from 'xlsx';
-import Table from '../components/Table.jsx'
+import { read, utils } from "xlsx";
+import Table from "../components/Table.jsx";
 import { DashboardContext } from "@/components/DashboardContext";
 
 export default function Home() {
-  const {courses, setCourses, getCourseByCourseID} = useContext(DashboardContext)
+  const { courses, setCourses, getCourseByCourseID } =
+    useContext(DashboardContext);
 
-  const checkExtension = useCallback(
-    (file) => {
-      const extension = file.name.split('.').pop();
-      return extension;
-  }, [])
+  const [loginKeys] = useState(["key1", "key2", "key3", "key4", "key5"]);
+  const [inputKey, setInputKey] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showDownloadAndVisualize, setShowDownloadAndVisualize] =
+    useState(false); // New state for button visibility
+
+  const checkExtension = useCallback((file) => {
+    const extension = file.name.split(".").pop();
+    return extension;
+  }, []);
 
   useEffect(() => {
-    console.log('WOOHOO:', courses)
-  }, [courses])
+    console.log("WOOHOO:", courses);
+  }, [courses]);
 
   function handleFileSelect(target) {
-
     if (!target?.files?.length || target?.files?.length == 0) {
-      return
+      return;
     }
     const file = target.files[0];
-    const extension = checkExtension(file)
+    const extension = checkExtension(file);
 
-    if (extension == 'csv') {
-      loadCSVFile(file)
-    }
-    else if (extension == 'xlsx') {
-      loadXLSXFIle(file)
-    }
-    else {
-      console.log('File type not supported! File must be of type .csv or .xlsx')
+    if (extension == "csv") {
+      loadCSVFile(file);
+    } else if (extension == "xlsx") {
+      loadXLSXFIle(file);
+    } else {
+      console.log(
+        "File type not supported! File must be of type .csv or .xlsx"
+      );
     }
   }
 
   const loadCSVFile = useCallback((file) => {
-
     const reader = new FileReader();
-    reader.readAsText(file)
+    reader.readAsText(file);
     reader.onload = (event) => {
       const fileContent = reader.result;
-      const wb = read(fileContent, {type: "string"});
+      const wb = read(fileContent, { type: "string" });
       const entries = utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-      setCourses(entries)
-    }
-  }, [])
+      setCourses(entries);
+    };
+  }, []);
 
   const loadXLSXFIle = useCallback((file) => {
     const reader = new FileReader();
-    reader.readAsArrayBuffer(file)
+    reader.readAsArrayBuffer(file);
     reader.onload = () => {
       const fileContent = reader.result;
       const workbook = read(fileContent, {
-        type: 'binary'
-      })
+        type: "binary",
+      });
 
-      const entries = utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-      setCourses(entries)
+      const entries = utils.sheet_to_json(
+        workbook.Sheets[workbook.SheetNames[0]]
+      );
+      setCourses(entries);
+    };
+  }, []);
+
+  const handleLogin = () => {
+    if (loginKeys.includes(inputKey)) {
+      setIsLoggedIn(true); // Set login status to true
+    } else {
+      alert("Invalid login key!"); // Alert for invalid key
     }
-  }, [])
-  
+  };
+
+  if (!isLoggedIn) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center">
+          <h1 className="text-3xl">
+            Welcome to the Doceobo Course Analysis System
+          </h1>
+          <h2 className="mb-4 text-xl font-bold">Login to Access</h2>
+          <input
+            type="password"
+            value={inputKey}
+            onChange={(e) => setInputKey(e.target.value)}
+            placeholder="Enter login key"
+            className="border border-gray-300 rounded p-2 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            onClick={handleLogin}
+            className="bg-blue-500 text-white rounded p-2 hover:bg-blue-600 transition duration-200"
+          >
+            Login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <input type='file' id='fileInput' onChange={(event) => {
-          handleFileSelect(event.target)}}/>
-          {courses && <Table />}
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+        <h1 className="text-3xl">
+          Welcome to the Doceobo Course Analysis System
+        </h1>
+        <h2 className="mb-4 text-xl font-bold">Choose an option:</h2>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+        {/* Centered file input */}
+        <div className="flex justify-center">
+          <input
+            type="file"
+            id="fileInput"
+            onChange={(event) => {
+              handleFileSelect(event.target);
+            }}
+          />
         </div>
+
+        {/* Centered buttons container */}
+        <div className="flex flex-col items-center justify-center">
+          {/* Option to scrape BetterUp */}
+          <button
+            onClick={() => {
+              console.log("Scrape BetterUp button clicked");
+              setShowDownloadAndVisualize(true); // Show the new buttons when clicked
+            }}
+            className="bg-blue-500 text-white rounded p-2 hover:bg-blue-600 transition duration-200"
+          >
+            Scrape BetterUp
+          </button>
+
+          {/* Conditionally render the Download Data and Visualize Data buttons */}
+          {showDownloadAndVisualize && (
+            <div className="flex flex-col items-center justify-center">
+              <button
+                onClick={() => {
+                  console.log("Download Data button clicked");
+                }}
+                className="bg-white text-black rounded p-2 mb-12 hover:bg-gray-200 transition duration-200 w-full" // Changed to white background and black text, added mb-12 for padding
+              >
+                Download Data
+              </button>
+
+              <button
+                onClick={() => {
+                  console.log("Visualize Data button clicked");
+                }}
+                className="bg-white text-black rounded p-2 hover:bg-gray-200 transition duration-200 w-full" // Changed to white background and black text
+              >
+                Visualize Data
+              </button>
+            </div>
+          )}
+        </div>
+
+        {courses && <Table />}
       </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }
