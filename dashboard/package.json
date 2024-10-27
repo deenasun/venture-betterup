@@ -16,6 +16,9 @@
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
+    "babel-loader": "^9.2.1",
     "eslint": "^8",
     "eslint-config-next": "15.0.0",
     "postcss": "^8",
