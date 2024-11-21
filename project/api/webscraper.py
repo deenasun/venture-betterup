@@ -48,47 +48,59 @@ def login(username, password):
     tables = driver.find_elements(By.TAG_NAME, "table")
     course_table = tables[1]
     rows = course_table.find_elements(By.TAG_NAME, "tr")
-    # all_courses.extend(scrape_current_page(rows))
+    all_courses.extend(scrape_current_page(rows))
+
     pagination_table = tables[-1]
     pagination_controls = pagination_table.find_element(By.CLASS_NAME, "paginationControls")
-    divs = pagination_controls.find_elements(By.TAG_NAME, 'div')
-    next_div = divs[-1]
-    next_button = next_div.find_element(By.TAG_NAME, 'a')
-    print(next_button, next_button.get_attribute('class'))
-    print('disabled' in next_button.get_attribute('class'), 'mid' in next_button.get_attribute('class'))
-    try:
-        next_button.click()
-    except Exception as e:
-    # Dismiss the GDPR policy banner
-        banner = driver.find_element(By.CSS_SELECTOR, "gdpr-policy-banner")
-        dismiss_button = banner.find_element(By.CSS_SELECTOR, "button")
-        dismiss_button.click()
-        next_button.click()
-    print('clicked next')
-    time.sleep(10)
-    # next_button = WebDriverWait(driver, 10).until(
-    #     EC.element_to_be_clickable((By.CLASS_NAME, "zmdi zmdi-chevron-right"))
-    # )
-    # driver.execute_script("arguments[0].click();", next_button)
-    # time.sleep(2)  # Wait for the page to load
-    # while True:
-    #     tables = driver.find_elements(By.TAG_NAME, "table")
-    #     course_table = tables[1]
-    #     rows = course_table.find_elements(By.TAG_NAME, "tr")
-    #     all_courses.extend(scrape_current_page(rows))
-    #     print("scraped current page")
-    #     try:
-    #         next_button = WebDriverWait(driver, 10).until(
-    #             EC.element_to_be_clickable((By.XPATH, "//pagination-template/div/div[1]/a"))
-    #         )
-    #         driver.execute_script("arguments[0].click();", next_button)
-    #         time.sleep(2)  # Wait for the page to load
-    #     except TimeoutException:
-    #         print("No more pages found.")
-    #         break
-    #     except Exception as e:
-    #         print(f"An error occurred: {e}")
-    #         break
+
+    max_attempts = 10  # Maximum number of attempts to click the next button
+    attempts = 0
+
+    while attempts < max_attempts:
+        try:
+            tables = driver.find_elements(By.TAG_NAME, "table")
+            course_table = tables[1]
+            rows = course_table.find_elements(By.TAG_NAME, "tr")
+            pagination_table = tables[-1]
+            pagination_controls = pagination_table.find_element(By.CLASS_NAME, "paginationControls")
+            div_for_next_button = pagination_controls.find_elements(By.TAG_NAME, 'div')[-1]
+            next_button = div_for_next_button.find_element(By.TAG_NAME, 'a')
+            
+            if 'disabled' in next_button.get_attribute('class'):
+                break  # Exit the loop if the next button is disabled
+            
+            driver.execute_script("arguments[0].click();", next_button)
+            
+            # Wait for the page to load
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.TAG_NAME, "table"))
+            )
+            
+            # Re-find the next button element after the page load
+            pagination_controls = pagination_table.find_element(By.CLASS_NAME, "paginationControls")
+            div_for_next_button = pagination_controls.find_elements(By.TAG_NAME, 'div')[-1]
+            next_button = div_for_next_button.find_element(By.TAG_NAME, 'a')
+            
+            # Scrape the data from the current page
+            curr_rows = course_table.find_elements(By.TAG_NAME, "tr")
+            all_courses.extend(scrape_current_page(curr_rows))
+            
+            print('clicked next')
+            attempts += 1
+        except Exception as e:
+            # Dismiss the GDPR policy banner
+            try:
+                banner = driver.find_element(By.CSS_SELECTOR, "gdpr-policy-banner")
+                dismiss_button = banner.find_element(By.CSS_SELECTOR, "button")
+                dismiss_button.click()
+            except Exception as e:
+                pass  # Ignore the exception if the banner is not present
+            
+            print(f"Error clicking next button: {e}")
+            attempts += 1
+
+    print('Reached end of all pages')
+    time.sleep(20)
     return
 
 # Function to collect course data from the current page
@@ -104,23 +116,7 @@ def scrape_current_page(rows):
             "Sessions": cols[4].text,
             "Enrollments": cols[7].text
         }
-        # print(course_data)
         courses.append(course_data)
-    return courses
-
-    rows = driver.find_elements(By.CSS_SELECTOR, "tr")  # Adjust selector if necessary
-    for row in rows:
-        cols = row.find_elements(By.TAG_NAME, "td")
-        if len(cols) > 0:
-            course_data = {
-                "Code": cols[0].text,
-                "Title": cols[1].text,
-                "Type": cols[2].text,
-                "Creation Date": cols[3].text,
-                "Sessions": cols[4].text,
-                "Enrollments": cols[7].text
-            }
-            courses.append(course_data)
     return courses
 
 # List to store all course data
@@ -130,6 +126,7 @@ all_courses = []
 login("denysechan@berkeley.edu", "VSSBerkeley2024")
 
 print(all_courses)
+print(len(all_courses))
 # # Loop through all the pages using the pagination controls
 # while True:
 #     # Scrape the current page's courses
