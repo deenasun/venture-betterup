@@ -9,11 +9,11 @@ from selenium.common.exceptions import StaleElementReferenceException
 # Set up the WebDriver
 driver = webdriver.Chrome()  
 
-# Open the LMS login page
+# Open the LMS login_and_scrape page
 driver.get("https://betterup.docebosaas.com/course/manage")
 
 # Function to log in to the LMS
-def login(username, password):
+def login_and_scrape(username, password):
     # Wait for the email field to be present and then click continue
     try:
         username_field = WebDriverWait(driver, 10).until(
@@ -121,11 +121,9 @@ def scrape_current_page(rows):
 # List to store all course data
 all_courses = []
 
-# Call the login function with your credentials
-login("denysechan@berkeley.edu", "VSSBerkeley2024")
+# Call login function with credentials
+login_and_scrape("denysechan@berkeley.edu", "VSSBerkeley2024")
 
-print(all_courses)
-print(len(all_courses))
 
 # # Save the data to a CSV file
 df = pd.DataFrame(all_courses)
