@@ -107,13 +107,14 @@ def scrape_current_page(rows):
     courses = []
     for row in rows:
         cols = row.find_elements(By.TAG_NAME, "td")
+        enrollment_count = row.find_element(By.CLASS_NAME, "counter")
         course_data = {
             "Code": cols[0].text,
             "Title": cols[1].text,
             "Type": cols[2].text,
             "Creation Date": cols[3].text,
             "Sessions": cols[4].text,
-            "Enrollments": cols[7].text
+            "Enrollments": enrollment_count.text if enrollment_count else 0
         }
         courses.append(course_data)
     return courses
