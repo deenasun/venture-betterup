@@ -4,7 +4,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 import pandas as pd
-from selenium.common.exceptions import StaleElementReferenceException
+from selenium.common.exceptions import StaleElementReferenceException, TimeoutException, NoSuchElementException
+import time
 
 # Set up the WebDriver
 driver = webdriver.Chrome()  
@@ -13,8 +14,7 @@ driver = webdriver.Chrome()
 driver.get("https://betterup.docebosaas.com/course/manage")
 
 # Function to log in to the LMS
-def login_and_scrape(username, password):
-    # Wait for the email field to be present and then click continue
+def login(username, password, driver):
     try:
         username_field = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.ID, "user_email")) 
@@ -39,22 +39,27 @@ def login_and_scrape(username, password):
         print(f"Failed to enter password: {e}")
     login_button = driver.find_element(By.XPATH, "//input[@type='submit' and @value='Log in']")
     driver.execute_script("arguments[0].click();", login_button)
+    print("Login successful!")
 
-    # Wait for the login to complete (adjust condition if necessary)
+def scrape():
+    # Wait for the email field to be present and then click continue
+    login("denysechan@berkeley.edu", "VSSBerkeley2024", driver)
+    # #Login Done!
+    
     WebDriverWait(driver, 10).until(
         EC.url_contains("/course/manage")  # Update with the post-login dashboard URL path
     )
-    print("Login successful!")
     tables = driver.find_elements(By.TAG_NAME, "table")
     course_table = tables[1]
     rows = course_table.find_elements(By.TAG_NAME, "tr")
-    all_courses.extend(scrape_current_page(rows))
+    all_courses.extend(scrape_current_page(rows, []))
 
     pagination_table = tables[-1]
     pagination_controls = pagination_table.find_element(By.CLASS_NAME, "paginationControls")
 
     max_attempts = 50  # Maximum number of attempts to click the next button, prevents infinite loops
     attempts = 0
+
 
     while attempts < max_attempts:
         try:
@@ -65,9 +70,19 @@ def login_and_scrape(username, password):
             tables = driver.find_elements(By.TAG_NAME, "table")
             course_table = tables[1]
             rows = course_table.find_elements(By.TAG_NAME, "tr")
+
+            # Extract 'data-id' values
+            data_ids = []
+            for row in rows:
+                data_id = row.get_attribute("data-id")
+                if data_id:  # Only append non-empty data-id values
+                    data_ids.append(data_id)
+
             # Scrape the data from the current page
             curr_rows = course_table.find_elements(By.TAG_NAME, "tr")
-            all_courses.extend(scrape_current_page(curr_rows))
+            all_courses.extend(scrape_current_page(curr_rows, data_ids))
+
+            rows = driver.find_elements(By.CSS_SELECTOR, "tr[_ngcontent-ng-c3445667421]")
             
             pagination_table = tables[-1]
             pagination_controls = pagination_table.find_element(By.CLASS_NAME, "paginationControls")
@@ -103,27 +118,78 @@ def login_and_scrape(username, password):
     return
 
 # Function to collect course data from the current page
-def scrape_current_page(rows):
+def scrape_current_page(rows, data_ids):
+    base_url = "https://betterup.docebosaas.com/course/edit/"
+    course_stats = []
+    driver2 = webdriver.Chrome()
+    driver2.get("https://betterup.docebosaas.com/course/manage")
+    login("denysechan@berkeley.edu", "VSSBerkeley2024", driver2)
+    for data_id in data_ids:
+        full_url = f"{base_url}{data_id};tab=reports"
+        print(f"Navigating to: {full_url}")
+    
+        # Navigate to the URL
+        driver2.get(full_url)
+        # time.sleep(5)  # Adjust the sleep time as needed or use explicit waits
+        
+        WebDriverWait(driver2, 10).until(
+            EC.frame_to_be_available_and_switch_to_it((By.ID, 'legacy-wrapper-iframe'))
+        )
+
+        # Extract "To Begin," "In Progress," and "Completed" numbers dynamically
+        try:
+            counters = WebDriverWait(driver2, 10).until(
+                EC.presence_of_all_elements_located((By.CLASS_NAME, "span12.player-stats-counter"))
+            )
+            #Extract and map the values
+            stats = {
+                "Enrollments": counters[0].text if len(counters) > 0 else None,
+                "Days Since Launch": counters[1].text if len(counters) > 1 else None,
+                "Training Materials": counters[2].text if len(counters) > 2 else None,
+                "Not Started": counters[3].text if len(counters) > 3 else None,
+                "In Progress": counters[4].text if len(counters) > 4 else None,
+                "Completed": counters[5].text if len(counters) > 5 else None,
+            }
+            print(f"Data for course {data_id}: {stats}")
+            course_stats.append(stats)
+        except TimeoutException:
+            print("Timed out waiting for the element to load")
+        except NoSuchElementException:
+            print("Element not found")
+        except Exception as e:
+            print("An error occurred:", str(e))
+
+    driver2.quit()
+
     courses = []
+    i = 0
     for row in rows:
         cols = row.find_elements(By.TAG_NAME, "td")
         enrollment_count = row.find_element(By.CLASS_NAME, "counter")
         course_data = {
-            "Code": cols[0].text,
+            #"Code": cols[0].text,
             "Title": cols[1].text,
             "Type": cols[2].text,
             "Creation Date": cols[3].text,
+            "Days Since Creation": course_stats[i]["Days Since Launch"],
+            "Training Materials": course_stats[i]["Training Materials"],
             "Sessions": cols[4].text,
-            "Enrollments": enrollment_count.text if enrollment_count else 0
+            "Enrollments": enrollment_count.text if enrollment_count else 0,
+            "Not Started": course_stats[i]["Not Started"],
+            "Stuck": course_stats[i]["In Progress"],
+            "Completed": course_stats[i]["Completed"]
         }
         courses.append(course_data)
+        i += 1
+
+    print("Filled Out Courses": courses)
     return courses
 
 # List to store all course data
 all_courses = []
 
 # Call login function with credentials
-login_and_scrape("denysechan@berkeley.edu", "VSSBerkeley2024")
+scrape()
 
 
 # # Save the data to a CSV file
