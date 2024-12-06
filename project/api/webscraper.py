@@ -3,9 +3,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
-import pandas as pd
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import StaleElementReferenceException, TimeoutException, NoSuchElementException
+import pandas as pd
 import time
+from bs4 import BeautifulSoup
+import re
 
 # Set up the WebDriver
 driver = webdriver.Chrome()  
@@ -37,15 +40,13 @@ def login(username, password, driver):
         print('Password entered successfully.')
     except Exception as e:
         print(f"Failed to enter password: {e}")
+
+    # Login Button    
     login_button = driver.find_element(By.XPATH, "//input[@type='submit' and @value='Log in']")
     driver.execute_script("arguments[0].click();", login_button)
     print("Login successful!")
 
 def scrape():
-    # Wait for the email field to be present and then click continue
-    login("denysechan@berkeley.edu", "VSSBerkeley2024", driver)
-    # #Login Done!
-    
     WebDriverWait(driver, 10).until(
         EC.url_contains("/course/manage")  # Update with the post-login dashboard URL path
     )
@@ -81,6 +82,8 @@ def scrape():
             # Scrape the data from the current page
             curr_rows = course_table.find_elements(By.TAG_NAME, "tr")
             all_courses.extend(scrape_current_page(curr_rows, data_ids))
+            df = pd.DataFrame(all_courses)
+            df.to_csv("courses_data.csv", index=False)
 
             rows = driver.find_elements(By.CSS_SELECTOR, "tr[_ngcontent-ng-c3445667421]")
             
@@ -125,6 +128,7 @@ def scrape_current_page(rows, data_ids):
     driver2.get("https://betterup.docebosaas.com/course/manage")
     login("denysechan@berkeley.edu", "VSSBerkeley2024", driver2)
     for data_id in data_ids:
+        data_id = 668
         full_url = f"{base_url}{data_id};tab=reports"
         print(f"Navigating to: {full_url}")
     
@@ -159,6 +163,131 @@ def scrape_current_page(rows, data_ids):
         except Exception as e:
             print("An error occurred:", str(e))
 
+        #Extract the post-course survey data
+        try:
+            report_navs = WebDriverWait(driver2, 10).until(
+                EC.presence_of_all_elements_located((By.CLASS_NAME, 'report-nav-btn'))
+            )
+            # print("Report Navs:", report_navs)
+
+            training_material_button = report_navs[1]
+            # print("Training Material Button:", training_material_button)
+            try:
+                # try:
+                #     button2 = WebDriverWait(driver2, 10).until(
+                #         EC.presence_of_element_located((By.CLASS_NAME, "bg-white.open.ng-star-inserted"))
+                #     )
+                #     button2.click()
+                # except Exception as e:
+                #     print(f"Error dismissing banner: {e}")
+                #     pass  # Ignore the exception if the banner is not present
+
+                driver2.execute_script("arguments[0].click();", training_material_button)
+                print("Clicked training materials")
+                time.sleep(5)
+
+                try:
+                    post_course_survey_element = WebDriverWait(driver2, 20).until(
+                        EC.presence_of_element_located((By.CLASS_NAME, "reports-fancybox.fancybox\.ajax.report-grid-link"))
+                    )
+                    #print("Post-Course Survey Element:", post_course_survey_element)
+
+                    post_course_survey_href = post_course_survey_element.get_attribute('href')
+                    #print("Post-Course Survey href:", post_course_survey_href)
+
+                    driver2.get(post_course_survey_href)
+                    html = driver2.page_source
+                    #print("HTML:", html)
+                    soup = BeautifulSoup(html, 'html.parser')
+
+                    all_text = soup.get_text()
+                    print("All Text:\n", all_text)
+
+                    # Process the text to remove everything above "Attendance"
+                    filtered_text = all_text.split("Attendance:")[1]  # Split and keep only relevant part
+                    filtered_text = "Attendance:" + filtered_text  # Re-add "Attendance:" for clarity
+
+                    # Parse the filtered text
+                    lines = filtered_text.splitlines()  # Split into lines for easier processing
+                    lines = [line.strip() for line in lines if line.strip()]  # Remove empty lines
+
+                    # Initialize the dictionary to store parsed data
+                    post_course_survey = {}
+
+                    # Function to safely extract numbers with regex
+                    def safe_extract_number(text, default=0):
+                        match = re.search(r"\d+", text)
+                        return int(match.group()) if match else default
+
+                    # Extract "Attendance"
+                    attendance_line = next((line for line in lines if line.startswith("Attendance:")), None)
+                    post_course_survey["Attendance"] = safe_extract_number(attendance_line)
+
+                    # Extract Likert scale data
+                    likert_question_index = next((i for i, line in enumerate(lines) if "How likely are you to recommend" in line), None)
+                    if likert_question_index is not None:
+                        likert_scale_values = lines[likert_question_index + 2] if len(lines) > likert_question_index + 2 else ""
+                        post_course_survey["Likert"] = {
+                            # "0": safe_extract_number(likert_scale_values.split("0)")[1]),
+                            # "1": safe_extract_number(likert_scale_values.split("1)")[1]),
+                            # "2": safe_extract_number(likert_scale_values.split("2)")[1]),
+                            # "3": safe_extract_number(likert_scale_values.split("3)")[1]),
+                            # "4": safe_extract_number(likert_scale_values.split("4)")[1]),
+                            # "5": safe_extract_number(likert_scale_values.split("5)")[1]),
+                            # "6": safe_extract_number(likert_scale_values.split("6)")[1]),
+                            # "7": safe_extract_number(likert_scale_values.split("7)")[1]),
+                            # "8": safe_extract_number(likert_scale_values.split("8)")[1]),
+                            # "9": safe_extract_number(likert_scale_values.split("9)")[1]),
+                            # "10": safe_extract_number(likert_scale_values.split("10)")[1])
+                        }
+
+                    # Extract knowledge improvement data
+                    knowledge_question_index = next((i for i, line in enumerate(lines) if "My knowledge improved" in line), None)
+                    if knowledge_question_index is not None:
+                        knowledge_data = lines[knowledge_question_index + 1]
+                        pattern = r"(.+?)(\d+)"
+                        result = {}
+                        while match := re.search(pattern, knowledge_data):
+                            key = match.group(1).strip()  # Text before the number (key)
+                            value = int(match.group(2))   # The number (value)
+                            result[key] = value           # Add to dictionary
+                            
+                            # Remove the processed part from the text
+                            knowledge_data = knowledge_data[match.end():].strip()
+                        post_course_survey["Knowledge"] = result
+
+                    # Extract what users liked most
+                    like_question_index = next((i for i, line in enumerate(lines) if "What did you like most" in line), None)
+                    if like_question_index is not None:
+                        like_answers = lines[like_question_index + 1:]  # Extract all text answers after the question
+                        like_answers = [answer for answer in like_answers if not answer.startswith("4) ")]  # Stop at the next question
+                        post_course_survey["Like"] = like_answers
+
+                    # Extract improvement suggestions
+                    improve_question_index = next((i for i, line in enumerate(lines) if "What can we do to improve" in line), None)
+                    if improve_question_index is not None:
+                        improve_answers = lines[improve_question_index + 1:]  # Extract all text answers for this question
+                        post_course_survey["Improve"] = improve_answers
+
+                    # Print the final dictionary
+                    print(post_course_survey)
+
+                    driver2.back()
+                    print("Current URL:", driver2.current_url)
+                except NoSuchElementException:
+                    print("Element post-course found")
+                except Exception as e:
+                    print("No post-course survey found because of error:", e)
+                    post_course_survey = None
+
+            except Exception as e:
+                print("ERROR WITH TESTING:", e)
+
+        except Exception as e:
+            print("No navs :(:", str(e))
+
+        
+
     driver2.quit()
 
     courses = []
@@ -167,17 +296,16 @@ def scrape_current_page(rows, data_ids):
         cols = row.find_elements(By.TAG_NAME, "td")
         enrollment_count = row.find_element(By.CLASS_NAME, "counter")
         course_data = {
-            #"Code": cols[0].text,
-            "Title": cols[1].text,
-            "Type": cols[2].text,
-            "Creation Date": cols[3].text,
+            "Code": cols[1].text,
+            "Type": cols[4].text,
+            "Title": cols[3].text,
+            "Creation Date": cols[5].text,
             "Days Since Creation": course_stats[i]["Days Since Launch"],
-            "Training Materials": course_stats[i]["Training Materials"],
-            #"Sessions": cols[4].text,
-            "Enrollments": enrollment_count.text if enrollment_count else 0,
+            "Enrollments": course_stats[i]["Enrollments"],
             "Not Started": course_stats[i]["Not Started"],
             "Stuck": course_stats[i]["In Progress"],
-            "Completed": course_stats[i]["Completed"]
+            "Completed": course_stats[i]["Completed"],
+            "Post Course Survey": post_course_survey
         }
         courses.append(course_data)
         i += 1
@@ -186,11 +314,14 @@ def scrape_current_page(rows, data_ids):
     return courses
 
 # List to store all course data
+
+# Wait for the email field to be present and then login
+login("denysechan@berkeley.edu", "VSSBerkeley2024", driver)
+
+
+# Scrape the entire page and store in all_courses
 all_courses = []
-
-# Call login function with credentials
 scrape()
-
 
 # # Save the data to a CSV file
 df = pd.DataFrame(all_courses)
