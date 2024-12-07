@@ -9,6 +9,7 @@ import pandas as pd
 import time
 from bs4 import BeautifulSoup
 import re
+from datetime import datetime
 
 # Set up the WebDriver
 driver = webdriver.Chrome()  
@@ -45,6 +46,71 @@ def login(username, password, driver):
     login_button = driver.find_element(By.XPATH, "//input[@type='submit' and @value='Log in']")
     driver.execute_script("arguments[0].click();", login_button)
     print("Login successful!")
+
+def load_existing_data():
+    try:
+        # Load the CSV file
+        existing_df = pd.read_csv("courses_data.csv")
+        
+        # Safely initialize "Timeline" as dictionaries
+        if "Timeline" in existing_df.columns:
+            existing_df["Timeline"] = existing_df["Timeline"].apply(eval)  # Convert string to dictionary
+        
+        print("Existing data loaded successfully.")
+    except (FileNotFoundError, pd.errors.EmptyDataError):
+        print("No existing CSV found. Starting with an empty dataset.")
+        columns = ["Code", "Type", "Title", "Creation Date", "Days Since Creation", "Timeline", "Post Course Survey"]
+        existing_df = pd.DataFrame(columns=columns)
+        existing_df.to_csv("courses_data.csv", index=False)
+    return existing_df
+
+# Function to update the CSV file with new and historical data
+def update_csv_with_historical_data(all_courses, existing_df):
+    print("All Courses: ", all_courses)
+    print("Existing_df:", existing_df)
+    today = datetime.now().strftime("%Y-%m-%d")
+    for course in all_courses:
+        print("Title:", course["Title"])
+        title = course["Title"]
+        if title in existing_df["Title"].values:
+            # Update existing course data
+            existing_row = existing_df.loc[existing_df["Title"] == title]
+            idx = existing_row.index[0]
+            timeline = existing_df.at[idx, "Timeline"]
+            if today not in timeline:
+                timeline[today] = {
+                    "Enrollments": course["Enrollments"],
+                    "Not Started": course["Not Started"],
+                    "Stuck": course["Stuck"],
+                    "Completed": course["Completed"]
+                }
+                existing_df.at[idx, "Timeline"] = timeline
+        else:
+            # Add new course data with historical tracking
+            new_row = {
+                "Code": course["Code"],
+                "Type": course["Type"],
+                "Title": course["Title"],
+                "Creation Date": course["Creation Date"],
+                "Days Since Creation": course["Days Since Creation"],
+                "Timeline": {
+                    today: {
+                        "Enrollments": course["Enrollments"],
+                        "Not Started": course["Not Started"],
+                        "Stuck": course["Stuck"],
+                        "Completed": course["Completed"]
+                    }
+                },
+                "Post Course Survey": course["Post Course Survey"]
+            }
+            print("New Row", new_row)
+            existing_df = pd.concat([existing_df, pd.DataFrame([new_row])], ignore_index=True)
+
+    # Save the updated DataFrame back to the CSV
+    existing_df.to_csv("courses_data.csv", index=False)
+    print("Existing_df:", existing_df)
+    print("CSV updated with historical tracking.")
+    return existing_df
 
 def scrape():
     WebDriverWait(driver, 10).until(
@@ -85,8 +151,7 @@ def scrape():
             # Scrape the data from the current page
             curr_rows = course_table.find_elements(By.TAG_NAME, "tr")
             all_courses.extend(scrape_current_page(curr_rows, data_ids))
-            df = pd.DataFrame(all_courses)
-            df.to_csv("courses_data.csv", index=False)
+            update_csv_with_historical_data(all_courses, existing_df)
 
             rows = driver.find_elements(By.CSS_SELECTOR, "tr[_ngcontent-ng-c3445667421]")
             
@@ -172,7 +237,7 @@ def scrape_current_page(rows, data_ids):
 
                 #POST COURSE SURVEY DATA HERE
                 try:
-                    post_course_survey_element = WebDriverWait(driver2, 20).until(
+                    post_course_survey_element = WebDriverWait(driver2, 10).until(
                         EC.presence_of_element_located((By.CLASS_NAME, "reports-fancybox.fancybox\.ajax.report-grid-link"))
                     )
                     post_course_survey_href = post_course_survey_element.get_attribute('href')
@@ -245,21 +310,29 @@ def scrape_current_page(rows, data_ids):
         courses.append(course_data)
         i += 1
 
-    print("Filled Out Courses:", courses)
+    #print("Filled Out Courses:", courses)
     return courses
-
-# List to store all course data
 
 # Wait for the email field to be present and then login
 login("denysechan@berkeley.edu", "VSSBerkeley2024", driver)
 
-
-# Scrape the entire page and store in all_courses
 all_courses = []
+# Load the existing data
+existing_df = load_existing_data()
+
+update_csv_with_historical_data(all_courses, existing_df)
+
+# Scrape the data
 scrape()
 
-# # Save the data to a CSV file
-df = pd.DataFrame(all_courses)
-df.to_csv("courses_data.csv", index=False)
+# Update the CSV with historical tracking
+update_csv_with_historical_data(all_courses, existing_df)
+# Scrape the entire page and store in all_courses
 
 print("Data scraping completed. Saved to courses_data.csv")
+
+# all_courses = [{'Code': '', 'Type': 'E-learning', 'Title': 'Gilead Sciences - People Leader Change Support - Dec 2024', 'Creation Date': '12/4/2024', 'Days Since Creation': '2', 'Enrollments': '1', 'Not Started': '0', 'Stuck': '1', 'Completed': '0', 'Post Course Survey': None}, {'Code': 'CC2025-Tool-Live', 'Type': 'ILT (Instructor-Led Training)', 'Title': 'Deep Listening Live Session', 'Creation Date': '11/26/2024', 'Days Since Creation': '', 'Enrollments': '', 'Not Started': '', 'Stuck': '', 'Completed': '', 'Post Course Survey': None}, {'Code': 'PAID_ASML_DEIB', 'Type': 'E-learning', 'Title': 'ASML DEIB Course', 'Creation Date': '11/26/2024', 'Days Since Creation': '10', 'Enrollments': '15', 'Not Started': '12', 'Stuck': '0', 'Completed': '3', 'Post Course Survey': None}, {'Code': 'P2024-PartnerDisney', 'Type': 'E-learning', 'Title': 'Pinnacle Partner Spotlight: Disney', 'Creation Date': '11/26/2024', 'Days Since Creation': '10', 'Enrollments': '1', 'Not Started': '0', 'Stuck': '0', 'Completed': '1', 'Post Course Survey': None}, {'Code': 'P2024-GUIDE', 'Type': 'E-learning', 'Title': 'A Deep-Dive into GUIDE', 'Creation Date': '11/26/2024', 'Days Since Creation': '11', 'Enrollments': '3', 'Not Started': '1', 'Stuck': '1', 'Completed': '1', 'Post Course Survey': None}, {'Code': 'F2024-landing', 'Type': 'E-learning', 'Title': 'Gather 2024 is over!', 'Creation Date': '11/25/2024', 'Days Since Creation': '11', 'Enrollments': '5', 'Not Started': '0', 'Stuck': '0', 'Completed': '5', 'Post Course Survey': None}, {'Code': 'G2024-Keynote7', 'Type': 'E-learning', 'Title': 'A Fireside Chat with Prof. Martin Seligman (Live attendance, Gather 2024)', 'Creation Date': '11/25/2024', 'Days Since Creation': '11', 'Enrollments': '155', 'Not Started': '0', 'Stuck': '0', 'Completed': '155', 'Post Course Survey': None}, {'Code': 'G2024-Coach30', 'Type': 'E-learning', 'Title': 'Level Up: Taking Your Influence to the Next Level (Live attendance, Gather 2024)', 'Creation Date': '11/25/2024', 'Days Since Creation': '11', 'Enrollments': '59', 'Not Started': '0', 'Stuck': '0', 'Completed': '59', 'Post Course Survey': None}, {'Code': 'G2024-Coach29', 'Type': 'E-learning', 'Title': 'Unlocking Potential: Integrating Positive Psychology into Strengths Based Coaching (Live attendance, Gather 2024)', 'Creation Date': '11/25/2024', 'Days Since Creation': '11', 'Enrollments': '50', 'Not Started': '0', 'Stuck': '0', 'Completed': '50', 'Post Course Survey': None}, {'Code': 'G2024-Coach28', 'Type': 'E-learning', 'Title': 'The Power of Learning to Follow (Live attendance, Gather 2024)', 'Creation Date': '11/25/2024', 'Days Since Creation': '11', 'Enrollments': '44', 'Not Started': '0', 'Stuck': '0', 'Completed': '44', 'Post Course Survey': None}, {'Code': 'G2024-Coach27', 'Type': 'E-learning', 'Title': 'Personal Success Tools (PST) for Behavior Change (Live attendance, Gather 2024)', 'Creation Date': '11/25/2024', 'Days Since Creation': '11', 'Enrollments': '45', 'Not Started': '0', 'Stuck': '0', 'Completed': '45', 'Post Course Survey': None}, {'Code': 'G2024-Coach26', 'Type': 'E-learning', 'Title': 'Silence and Wonder: How to Lean into Coaching Presence (Live attendance, Gather 2024)', 'Creation Date': '11/25/2024', 'Days Since Creation': '11', 'Enrollments': '55', 'Not Started': '0', 'Stuck': '0', 'Completed': '55', 'Post Course Survey': None}, {'Code': 'G2024-Coach25', 'Type': 'E-learning', 'Title': 'Communication is Key: Listen Expertly and Speak with Intention (Live attendance, Gather 2024)', 'Creation Date': '11/25/2024', 'Days Since Creation': '11', 'Enrollments': '55', 'Not Started': '0', 'Stuck': '0', 'Completed': '55', 'Post Course Survey': None}, {'Code': 'G2024-Coach24', 'Type': 'E-learning', 'Title': 'Own Your Elevator Pitch and Ride to the Top Floor (Live attendance, Gather 2024)', 'Creation Date': '11/25/2024', 'Days Since Creation': '11', 'Enrollments': '58', 'Not Started': '0', 'Stuck': '0', 'Completed': '58', 'Post Course Survey': None}, {'Code': 'G2024-Coach23', 'Type': 'E-learning', 'Title': 'Unlocking Wisdom Through Somatic Coaching and Storytelling (Live attendance, Gather 2024)', 'Creation Date': '11/25/2024', 'Days Since Creation': '11', 'Enrollments': '58', 'Not Started': '0', 'Stuck': '0', 'Completed': '58', 'Post Course Survey': None}, {'Code': 'G2024-Coach22', 'Type': 'E-learning', 'Title': 'Executive Yoga: 7 Leadership Masters Steps in 7 Yoga Poses (Live attendance, Gather 2024)', 'Creation Date': '11/25/2024', 'Days Since Creation': '11', 'Enrollments': '40', 'Not Started': '0', 'Stuck': '0', 'Completed': '40', 'Post Course Survey': None}, {'Code': 'G2024-Coach21', 'Type': 'E-learning', 'Title': 'Improv to Improve Your Coaching Skills (Live attendance, Gather 2024)', 'Creation Date': '11/25/2024', 'Days Since Creation': '11', 'Enrollments': '120', 'Not Started': '0', 'Stuck': '0', 'Completed': '120', 'Post Course Survey': None}, {'Code': '', 'Type': 'E-learning', 'Title': 'Amazon DEIB Coaching Circles Fall 2024', 'Creation Date': '11/1/2024', 'Days Since Creation': '35', 'Enrollments': '15', 'Not Started': '0', 'Stuck': '5', 'Completed': '10', 'Post Course Survey': None}, {'Code': '', 'Type': 'E-learning', 'Title': 'Disney Ad-Sales Coach Briefing', 'Creation Date': '10/23/2024', 'Days Since Creation': '45', 'Enrollments': '29', 'Not Started': '1', 'Stuck': '2', 'Completed': '26', 'Post Course Survey': None}, {'Code': 'Welcome to BU Gov_CS', 'Type': 'E-learning', 'Title': 'BetterUp for Government Review', 'Creation Date': '10/7/2024', 'Days Since Creation': '61', 'Enrollments': '36', 'Not Started': '2', 'Stuck': '2', 'Completed': '32', 'Post Course Survey': None}]
+
+# existing_df = load_existing_data()
+
+# update_csv_with_historical_data(all_courses, existing_df)
