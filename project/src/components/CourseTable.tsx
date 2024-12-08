@@ -8,12 +8,12 @@ interface CourseTableProps {
   onCourseClick: (course: CourseData) => void;
 }
 
-type SortField = 'Course' | 'Enrollment' | 'NotStarted' | 'Stuck' | 'Completed';
+type SortField = 'Title' | 'Enrollment' | 'NotStarted' | 'Stuck' | 'Completed';
 type SortDirection = 'asc' | 'desc';
 
 export function CourseTable({ data, onCourseClick }: CourseTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<SortField>('Course');
+  const [sortField, setSortField] = useState<SortField>('Title');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   const handleSort = (field: SortField) => {
@@ -28,8 +28,8 @@ export function CourseTable({ data, onCourseClick }: CourseTableProps) {
   const filteredAndSortedData = useMemo(() => {
     return data
       .filter(course => 
-        course.Course.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.badges.some(badge => badge.toLowerCase().includes(searchTerm.toLowerCase()))
+        (course.Title ? course.Title.toLowerCase().includes(searchTerm.toLowerCase()) : '') ||
+        (course.badges?.length > 0 && course.badges.some(badge => badge.toLowerCase().includes(searchTerm.toLowerCase())))
       )
       .sort((a, b) => {
         const multiplier = sortDirection === 'asc' ? 1 : -1;
@@ -77,7 +77,7 @@ export function CourseTable({ data, onCourseClick }: CourseTableProps) {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {renderSortableHeader('Course', 'Course')}
+              {renderSortableHeader('Title', 'Title')}
               {renderSortableHeader('Enrollment', 'Enrollment')}
               {renderSortableHeader('NotStarted', 'Not Started')}
               {renderSortableHeader('Stuck', 'Stuck')}
@@ -96,10 +96,10 @@ export function CourseTable({ data, onCourseClick }: CourseTableProps) {
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="space-y-2">
                     <div className="text-sm font-medium text-gray-900">
-                      {course.Course}
+                      {course.Title}
                     </div>
                     <div className="flex flex-wrap gap-1">
-                      {course.badges.map((badge, i) => (
+                      {course.badges?.map((badge, i) => (
                         <span
                           key={i}
                           className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary"

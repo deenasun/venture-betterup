@@ -6,7 +6,7 @@ export interface TimelineData {
 }
 
 export interface CourseData {
-  Course: string;
+  Title: string;
   Age: number;
   Enrollment: number;
   NotStarted: number;
@@ -17,6 +17,24 @@ export interface CourseData {
   badges: string[];
   recommendation?: string;
   lastUpdated: string;
+}
+
+export interface AWSCourseData {
+  Code: string;
+  CreationDate: string;
+  Age: number;
+  PostCourseSurvey: string;
+  Timeline: TimelineData[];
+  Title: string;
+  Type: string;
+  badges?: string[];
+  recommendation?: string;
+  lastUpdated: string;
+  Enrollment: number;
+  NotStarted: number;
+  Stuck: number;
+  Completed: number;
+  Status: string;
 }
 
 export interface DashboardStats {
