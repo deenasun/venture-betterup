@@ -5,11 +5,12 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import StaleElementReferenceException, TimeoutException, NoSuchElementException
+from datetime import datetime
+from bs4 import BeautifulSoup
 import pandas as pd
 import time
-from bs4 import BeautifulSoup
 import re
-from datetime import datetime
+
 
 # Set up the WebDriver
 driver = webdriver.Chrome()  
@@ -122,7 +123,7 @@ def scrape():
     )
     course_table = tables[1]
     rows = course_table.find_elements(By.TAG_NAME, "tr")
-    all_courses.extend(scrape_current_page(rows, []))
+    #all_courses.extend(scrape_current_page(rows, []))
 
     pagination_table = tables[-1]
     pagination_controls = pagination_table.find_element(By.CLASS_NAME, "paginationControls")
@@ -192,6 +193,7 @@ def scrape():
 def scrape_current_page(rows, data_ids):
     base_url = "https://betterup.docebosaas.com/course/edit/"
     course_stats = []
+
     driver2 = webdriver.Chrome()
     driver2.get("https://betterup.docebosaas.com/course/manage")
     login("denysechan@berkeley.edu", "VSSBerkeley2024", driver2)
@@ -268,6 +270,7 @@ def scrape_current_page(rows, data_ids):
                     post_course_survey = {
                         "Attendance": attendance,
                         "Likert": likert_values,
+                        "Average Rating": sum(rating * count for rating, count in likert_values.items()) / sum(likert_values.values()) if sum(likert_values.values()) > 0 else 0,
                         "Like Most": like_most_list,
                         "Improve": improve_list
                     }
